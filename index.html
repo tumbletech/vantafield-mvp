@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Vantafield — Field Inspection & Asset Mapping</title>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet"/>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <style>
+    :root {
+      --bg-primary: #0d0f12;
+      --bg-secondary: #13161b;
+      --bg-panel: #181c22;
+      --bg-card: #1e242d;
+      --accent: #f0a500;
+      --accent-dim: #a87200;
+      --accent-glow: rgba(240,165,0,0.15);
+      --text-primary: #e8eaf0;
+      --text-secondary: #7a8394;
+      --text-muted: #4a5263;
+      --border: #252c38;
+      --border-accent: rgba(240,165,0,0.3);
+      --success: #2ecc71;
+      --danger: #e74c3c;
+      --warning: #f39c12;
+      --info: #3498db;
+      --font-display: 'Barlow Condensed', sans-serif;
+      --font-body: 'Barlow', sans-serif;
+      --font-mono: 'IBM Plex Mono', monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      height: 56px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      z-index: 1000;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      background: var(--accent);
+      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .logo-text {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-primary);
+    }
+
+    .logo-text span { color: var(--accent); }
+
+    .topbar-center {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--success);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 16px;
+      border: none;
+      border-radius: 4px;
+      font-family: var(--font-display);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #000;
+    }
+
+    .btn-primary:hover {
+      background: #ffc107;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px var(--accent-glow);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-outline:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    .btn-danger:hover { background: #c0392b; }
+
+    .btn-success {
+      background: var(--success);
+      color: #000;
+    }
+
+    .btn-sm {
+      padding: 5px 10px;
+      font-size: 11px;
+    }
+
+    /* ── MAIN LAYOUT ── */
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: 320px;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .sidebar-title {
+      font-family: var(--font-display);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+
+    .asset-count {
+      background: var(--accent);
+      color: #000;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    .search-bar {
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .search-input {
+      width: 100%;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 8px 12px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-input:focus { border-color: var(--accent); }
+    .search-input::placeholder { color: var(--text-muted); }
+
+    .asset-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .asset-list::-webkit-scrollbar { width: 4px; }
+    .asset-list::-webkit-scrollbar-track { background: transparent; }
+    .asset-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .asset-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 14px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-10px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .asset-card::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: var(--accent);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .asset-card:hover {
+      border-color: var(--border-accent);
+      background: #222830;
+    }
+
+    .asset-card:hover::before { opacity: 1; }
+    .asset-card.active { border-color: var(--accent); background: #222830; }
+    .asset-card.active::before { opacity: 1; }
+
+    .asset-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .asset-id {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--accent);
+      letter-spacing: 1px;
+    }
+
+    .condition-badge {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 3px;
+      font-weight: 500;
+    }
+
+    .condition-good { background: rgba(46,204,113,0.15); color: var(--success); }
+    .condition-fair { background: rgba(243,156,18,0.15); color: var(--warning); }
+    .condition-poor { background: rgba(231,76,60,0.15); color: var(--danger); }
+
+    .asset-name {
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .asset-meta {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      display: flex;
+      gap: 12px;
+    }
+
+    .asset-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--text-muted);
+    }
+
+    .empty-icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+      opacity: 0.3;
+    }
+
+    .empty-state p {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    /* ── STATS STRIP ── */
+    .stats-strip {
+      padding: 12px 20px;
+      border-top: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .stat-item {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1;
+    }
+
+    .stat-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 2px;
+    }
+
+    /* ── MAP AREA ── */
+    .map-container {
+      flex: 1;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .map-toolbar {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      z-index: 500;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .map-tool-btn {
+      width: 42px;
+      height: 42px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 18px;
+      transition: all 0.2s;
+      color: var(--text-secondary);
+    }
+
+    .map-tool-btn:hover, .map-tool-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--bg-card);
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+
+    .map-info {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      z-index: 500;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .coord-display {
+      color: var(--accent);
+    }
+
+    #map {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+
+    /* Pin mode cursor */
+    .pin-mode #map { cursor: crosshair !important; }
+
+    .pin-mode-banner {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 600;
+      background: var(--accent);
+      color: #000;
+      font-family: var(--font-display);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      padding: 8px 20px;
+      border-radius: 4px;
+      display: none;
+      animation: fadeInDown 0.3s ease;
+      text-transform: uppercase;
+    }
+
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .modal {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-accent);
+      border-radius: 10px;
+      width: 480px;
+      max-width: 95vw;
+      max-height: 85vh;
+      overflow-y: auto;
+      animation: slideUp 0.3s ease;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.6), 0 0 40px var(--accent-glow);
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-title {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: color 0.2s;
+    }
+
+    .modal-close:hover { color: var(--text-primary); }
+
+    .modal-body { padding: 24px; }
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    .form-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: block;
+      margin-bottom: 7px;
+    }
+
+    .form-control {
+      width: 100%;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 10px 12px;
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .form-control:focus { border-color: var(--accent); }
+    .form-control::placeholder { color: var(--text-muted); }
+
+    select.form-control option { background: var(--bg-card); }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .coord-fields {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 10px 12px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--accent);
+    }
+
+    .modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    /* Leaflet overrides */
+    .leaflet-container {
+      background: #0d0f12 !important;
+    }
+
+    .leaflet-popup-content-wrapper {
+      background: var(--bg-panel) !important;
+      border: 1px solid var(--border-accent) !important;
+      border-radius: 6px !important;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
+    }
+
+    .leaflet-popup-tip { background: var(--bg-panel) !important; }
+
+    .leaflet-popup-content {
+      color: var(--text-primary) !important;
+      font-family: var(--font-body) !important;
+      margin: 12px 16px !important;
+    }
+
+    .popup-id {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+
+    .popup-name {
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .popup-meta {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .popup-badge {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+    }
+
+    .leaflet-control-zoom {
+      border: 1px solid var(--border) !important;
+      border-radius: 6px !important;
+      overflow: hidden;
+    }
+
+    .leaflet-control-zoom a {
+      background: var(--bg-panel) !important;
+      color: var(--text-secondary) !important;
+      border-bottom: 1px solid var(--border) !important;
+    }
+
+    .leaflet-control-zoom a:hover {
+      background: var(--bg-card) !important;
+      color: var(--accent) !important;
+    }
+
+    /* Notification toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 3000;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-accent);
+      border-radius: 6px;
+      padding: 12px 18px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-primary);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      animation: toastIn 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      max-width: 320px;
+    }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .toast-icon { font-size: 16px; }
+
+    /* View detail panel */
+    .detail-panel {
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 340px;
+      background: var(--bg-panel);
+      border-left: 1px solid var(--border-accent);
+      z-index: 400;
+      display: none;
+      flex-direction: column;
+      animation: slideLeft 0.3s ease;
+    }
+
+    @keyframes slideLeft {
+      from { transform: translateX(30px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    .detail-panel.open { display: flex; }
+
+    .detail-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+
+    .detail-body {
+      padding: 20px;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .detail-field {
+      margin-bottom: 16px;
+    }
+
+    .detail-field-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .detail-field-value {
+      font-size: 14px;
+      color: var(--text-primary);
+      line-height: 1.5;
+    }
+
+    .detail-footer {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 16px 0;
+    }
+
+    /* Pulse ring on new pin */
+    .pulse-pin {
+      animation: mapPulse 1s ease-out;
+    }
+
+    @keyframes mapPulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.3); }
+      100% { transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-icon"></div>
+    <div class="logo-text">VANTA<span>FIELD</span></div>
+  </div>
+
+  <div class="topbar-center">
+    <div class="status-dot"></div>
+    <span>SYSTEM LIVE &nbsp;|&nbsp; SESSION: VF-2026-001 &nbsp;|&nbsp; <span id="clock">--:--:--</span></span>
+  </div>
+
+  <div class="topbar-right">
+    <button class="btn btn-outline" onclick="exportPDF()">⬇ Export Report</button>
+    <button class="btn btn-primary" onclick="togglePinMode()">＋ Add Asset</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <span class="sidebar-title">Asset Registry</span>
+      <span class="asset-count" id="assetCount">0</span>
+    </div>
+
+    <div class="search-bar">
+      <input type="text" class="search-input" placeholder="Search assets..." id="searchInput" oninput="filterAssets(this.value)"/>
+    </div>
+
+    <div class="asset-list" id="assetList">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">📍</div>
+        <p>No assets plotted yet.<br/>Click <strong style="color:var(--accent)">Add Asset</strong> then tap the map<br/>to place your first inspection point.</p>
+      </div>
+    </div>
+
+    <div class="stats-strip">
+      <div class="stat-item">
+        <div class="stat-value" id="statGood">0</div>
+        <div class="stat-label">Good</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="statFair" style="color:var(--warning)">0</div>
+        <div class="stat-label">Fair</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="statPoor" style="color:var(--danger)">0</div>
+        <div class="stat-label">Poor</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAP -->
+  <div class="map-container" id="mapContainer">
+
+    <div class="pin-mode-banner" id="pinBanner">📍 Click map to place asset</div>
+
+    <div class="map-toolbar">
+      <div class="map-tool-btn" onclick="map.setView([20, 0], 2)" title="World View">🌍</div>
+      <div class="map-tool-btn" onclick="fitAllAssets()" title="Fit All Assets">⊞</div>
+      <div class="map-tool-btn" onclick="toggleLayer()" title="Toggle Layer" id="layerBtn">🛰</div>
+    </div>
+
+    <div class="map-info">
+      LAT/LNG: <span class="coord-display" id="coordDisplay">—, —</span>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Detail Panel -->
+    <div class="detail-panel" id="detailPanel">
+      <div class="detail-header">
+        <div>
+          <div class="asset-id" id="dpId"></div>
+          <div class="asset-name" style="font-family:var(--font-display);font-size:18px;font-weight:700;" id="dpName"></div>
+        </div>
+        <button class="modal-close" onclick="closeDetail()">✕</button>
+      </div>
+      <div class="detail-body">
+        <div class="detail-field">
+          <div class="detail-field-label">Asset Type</div>
+          <div class="detail-field-value" id="dpType"></div>
+        </div>
+        <div class="detail-field">
+          <div class="detail-field-label">Condition</div>
+          <div class="detail-field-value" id="dpCondition"></div>
+        </div>
+        <div class="detail-field">
+          <div class="detail-field-label">Coordinates</div>
+          <div class="detail-field-value" id="dpCoords" style="font-family:var(--font-mono);font-size:12px;color:var(--accent)"></div>
+        </div>
+        <div class="detail-field">
+          <div class="detail-field-label">Inspector</div>
+          <div class="detail-field-value" id="dpInspector"></div>
+        </div>
+        <div class="detail-field">
+          <div class="detail-field-label">Date</div>
+          <div class="detail-field-value" id="dpDate" style="font-family:var(--font-mono);font-size:12px;"></div>
+        </div>
+        <div class="divider"></div>
+        <div class="detail-field">
+          <div class="detail-field-label">Notes</div>
+          <div class="detail-field-value" id="dpNotes" style="color:var(--text-secondary);font-size:13px;"></div>
+        </div>
+      </div>
+      <div class="detail-footer">
+        <button class="btn btn-outline" style="flex:1" onclick="closeDetail()">Close</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteCurrentAsset()">🗑 Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD ASSET MODAL -->
+<div class="modal-overlay" id="modalOverlay" style="display:none" onclick="handleOverlayClick(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">📍 New Inspection Point</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Coordinates</label>
+        <div class="coord-fields" id="coordFields">— , —</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Asset Name *</label>
+        <input type="text" class="form-control" id="fName" placeholder="e.g. Main Valve Station A" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Asset Type</label>
+          <select class="form-control" id="fType">
+            <option>Water Line</option>
+            <option>Drainage</option>
+            <option>Road / Pavement</option>
+            <option>Electrical</option>
+            <option>Telecom Tower</option>
+            <option>Solar Panel</option>
+            <option>Valve / Gate</option>
+            <option>Structure</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Condition</label>
+          <select class="form-control" id="fCondition">
+            <option value="good">Good</option>
+            <option value="fair">Fair</option>
+            <option value="poor">Poor</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Inspector Name</label>
+          <input type="text" class="form-control" id="fInspector" placeholder="Your name" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Inspection Date</label>
+          <input type="date" class="form-control" id="fDate" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes / Findings</label>
+        <textarea class="form-control" id="fNotes" rows="3" placeholder="Describe condition, defects, recommendations..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAsset()">✓ Save Asset</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── CLOCK ──
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('clock').textContent =
+      now.toUTCString().slice(17,25) + ' UTC';
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  // ── MAP INIT ──
+  const map = L.map('map', {
+    center: [20, 0],
+    zoom: 2,
+    zoomControl: true
+  });
+
+  const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap',
+    maxZoom: 19
+  });
+
+  const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: '© Esri',
+    maxZoom: 19
+  });
+
+  streetLayer.addTo(map);
+  let isSatellite = false;
+
+  function toggleLayer() {
+    if (isSatellite) {
+      map.removeLayer(satelliteLayer);
+      streetLayer.addTo(map);
+      document.getElementById('layerBtn').textContent = '🛰';
+    } else {
+      map.removeLayer(streetLayer);
+      satelliteLayer.addTo(map);
+      document.getElementById('layerBtn').textContent = '🗺';
+    }
+    isSatellite = !isSatellite;
+  }
+
+  // Coord tracking
+  map.on('mousemove', function(e) {
+    document.getElementById('coordDisplay').textContent =
+      e.latlng.lat.toFixed(5) + ', ' + e.latlng.lng.toFixed(5);
+  });
+
+  // ── STATE ──
+  let assets = [];
+  let markers = {};
+  let pinMode = false;
+  let pendingLatLng = null;
+  let currentDetailId = null;
+  let assetCounter = 1;
+
+  // ── PIN MODE ──
+  function togglePinMode() {
+    pinMode = !pinMode;
+    const banner = document.getElementById('pinBanner');
+    const container = document.getElementById('mapContainer');
+    if (pinMode) {
+      banner.style.display = 'block';
+      map.getContainer().style.cursor = 'crosshair';
+    } else {
+      banner.style.display = 'none';
+      map.getContainer().style.cursor = '';
+    }
+  }
+
+  map.on('click', function(e) {
+    if (!pinMode) return;
+    pendingLatLng = e.latlng;
+    document.getElementById('coordFields').textContent =
+      e.latlng.lat.toFixed(6) + ', ' + e.latlng.lng.toFixed(6);
+    document.getElementById('fDate').value = new Date().toISOString().slice(0,10);
+    openModal();
+    togglePinMode();
+  });
+
+  // ── MODAL ──
+  function openModal() {
+    document.getElementById('modalOverlay').style.display = 'flex';
+    document.getElementById('fName').focus();
+  }
+
+  function closeModal() {
+    document.getElementById('modalOverlay').style.display = 'none';
+    document.getElementById('fName').value = '';
+    document.getElementById('fNotes').value = '';
+    document.getElementById('fInspector').value = '';
+    pendingLatLng = null;
+  }
+
+  function handleOverlayClick(e) {
+    if (e.target === document.getElementById('modalOverlay')) closeModal();
+  }
+
+  // ── SAVE ASSET ──
+  function saveAsset() {
+    const name = document.getElementById('fName').value.trim();
+    if (!name) {
+      showToast('⚠', 'Asset name is required.');
+      document.getElementById('fName').focus();
+      return;
+    }
+    if (!pendingLatLng) return;
+
+    const id = 'VF-' + String(assetCounter++).padStart(4, '0');
+    const asset = {
+      id,
+      name,
+      type: document.getElementById('fType').value,
+      condition: document.getElementById('fCondition').value,
+      inspector: document.getElementById('fInspector').value || 'Unassigned',
+      date: document.getElementById('fDate').value || new Date().toISOString().slice(0,10),
+      notes: document.getElementById('fNotes').value || 'No notes.',
+      lat: pendingLatLng.lat,
+      lng: pendingLatLng.lng
+    };
+
+    assets.push(asset);
+    placeMarker(asset);
+    renderSidebar();
+    updateStats();
+    closeModal();
+    showToast('✓', `Asset "${name}" saved.`);
+
+    // Fly to the new pin
+    map.flyTo([asset.lat, asset.lng], Math.max(map.getZoom(), 12));
+  }
+
+  // ── MARKER ──
+  const conditionColors = { good: '#2ecc71', fair: '#f39c12', poor: '#e74c3c' };
+
+  function createMarkerIcon(condition) {
+    const color = conditionColors[condition];
+    return L.divIcon({
+      className: '',
+      html: `
+        <div style="
+          width:28px;height:28px;
+          background:${color};
+          border:3px solid #fff;
+          border-radius:50% 50% 50% 0;
+          transform:rotate(-45deg);
+          box-shadow:0 2px 12px rgba(0,0,0,0.5);
+        "></div>`,
+      iconSize: [28, 28],
+      iconAnchor: [14, 28],
+      popupAnchor: [0, -28]
+    });
+  }
+
+  function placeMarker(asset) {
+    const marker = L.marker([asset.lat, asset.lng], {
+      icon: createMarkerIcon(asset.condition)
+    }).addTo(map);
+
+    const condLabel = asset.condition.charAt(0).toUpperCase() + asset.condition.slice(1);
+    const badgeClass = 'condition-' + asset.condition;
+
+    marker.bindPopup(`
+      <div class="popup-id">${asset.id}</div>
+      <div class="popup-name">${asset.name}</div>
+      <div class="popup-meta">
+        <strong>Type:</strong> ${asset.type}<br/>
+        <strong>Inspector:</strong> ${asset.inspector}<br/>
+        <strong>Date:</strong> ${asset.date}
+      </div>
+      <span class="popup-badge ${badgeClass}">${condLabel}</span>
+      <br/><br/>
+      <button onclick="openDetail('${asset.id}')" style="
+        background:var(--accent);border:none;color:#000;
+        padding:5px 12px;border-radius:3px;cursor:pointer;
+        font-family:var(--font-display);font-size:12px;font-weight:700;
+        letter-spacing:1px;text-transform:uppercase;
+      ">View Details</button>
+    `);
+
+    marker.on('click', () => marker.openPopup());
+    markers[asset.id] = marker;
+  }
+
+  // ── SIDEBAR ──
+  function renderSidebar(filter = '') {
+    const list = document.getElementById('assetList');
+    const empty = document.getElementById('emptyState');
+    const filtered = assets.filter(a =>
+      a.name.toLowerCase().includes(filter.toLowerCase()) ||
+      a.type.toLowerCase().includes(filter.toLowerCase()) ||
+      a.id.toLowerCase().includes(filter.toLowerCase())
+    );
+
+    if (assets.length === 0) {
+      empty.style.display = 'block';
+      list.innerHTML = '';
+      list.appendChild(empty);
+      return;
+    }
+
+    empty.style.display = 'none';
+    list.innerHTML = '';
+
+    filtered.forEach(asset => {
+      const card = document.createElement('div');
+      card.className = 'asset-card';
+      card.id = 'card-' + asset.id;
+      card.innerHTML = `
+        <div class="asset-card-header">
+          <span class="asset-id">${asset.id}</span>
+          <span class="condition-badge condition-${asset.condition}">
+            ${asset.condition.toUpperCase()}
+          </span>
+        </div>
+        <div class="asset-name">${asset.name}</div>
+        <div class="asset-meta">
+          <span>📌 ${asset.type}</span>
+          <span>👤 ${asset.inspector}</span>
+        </div>
+        <div class="asset-actions">
+          <button class="btn btn-outline btn-sm" onclick="flyToAsset('${asset.id}')">Locate</button>
+          <button class="btn btn-outline btn-sm" onclick="openDetail('${asset.id}')">Details</button>
+        </div>
+      `;
+      list.appendChild(card);
+    });
+
+    document.getElementById('assetCount').textContent = assets.length;
+  }
+
+  function filterAssets(val) { renderSidebar(val); }
+
+  // ── STATS ──
+  function updateStats() {
+    document.getElementById('statGood').textContent = assets.filter(a => a.condition === 'good').length;
+    document.getElementById('statFair').textContent = assets.filter(a => a.condition === 'fair').length;
+    document.getElementById('statPoor').textContent = assets.filter(a => a.condition === 'poor').length;
+  }
+
+  // ── FLY TO ──
+  function flyToAsset(id) {
+    const asset = assets.find(a => a.id === id);
+    if (!asset) return;
+    map.flyTo([asset.lat, asset.lng], 15, { duration: 1.2 });
+    setTimeout(() => markers[id].openPopup(), 1200);
+    document.querySelectorAll('.asset-card').forEach(c => c.classList.remove('active'));
+    const card = document.getElementById('card-' + id);
+    if (card) { card.classList.add('active'); card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+  }
+
+  function fitAllAssets() {
+    if (assets.length === 0) return;
+    const group = L.featureGroup(Object.values(markers));
+    map.fitBounds(group.getBounds().pad(0.2));
+  }
+
+  // ── DETAIL PANEL ──
+  function openDetail(id) {
+    const asset = assets.find(a => a.id === id);
+    if (!asset) return;
+    currentDetailId = id;
+    document.getElementById('dpId').textContent = asset.id;
+    document.getElementById('dpName').textContent = asset.name;
+    document.getElementById('dpType').textContent = asset.type;
+    document.getElementById('dpCondition').innerHTML = `<span class="condition-badge condition-${asset.condition}">${asset.condition.toUpperCase()}</span>`;
+    document.getElementById('dpCoords').textContent = asset.lat.toFixed(6) + ', ' + asset.lng.toFixed(6);
+    document.getElementById('dpInspector').textContent = asset.inspector;
+    document.getElementById('dpDate').textContent = asset.date;
+    document.getElementById('dpNotes').textContent = asset.notes;
+    document.getElementById('detailPanel').classList.add('open');
+    flyToAsset(id);
+    if (markers[id]) markers[id].openPopup();
+  }
+
+  function closeDetail() {
+    document.getElementById('detailPanel').classList.remove('open');
+    currentDetailId = null;
+    document.querySelectorAll('.asset-card').forEach(c => c.classList.remove('active'));
+  }
+
+  function deleteCurrentAsset() {
+    if (!currentDetailId) return;
+    if (!confirm('Delete this asset? This cannot be undone.')) return;
+    const id = currentDetailId;
+    map.removeLayer(markers[id]);
+    delete markers[id];
+    assets = assets.filter(a => a.id !== id);
+    closeDetail();
+    renderSidebar();
+    updateStats();
+    showToast('🗑', 'Asset removed.');
+  }
+
+  // ── PDF EXPORT ──
+  function exportPDF() {
+    if (assets.length === 0) {
+      showToast('⚠', 'No assets to export.');
+      return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const W = 210, margin = 16;
+
+    // Header
+    doc.setFillColor(13, 15, 18);
+    doc.rect(0, 0, W, 40, 'F');
+    doc.setTextColor(240, 165, 0);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.text('VANTAFIELD', margin, 18);
+    doc.setFontSize(10);
+    doc.setTextColor(120, 131, 148);
+    doc.text('Field Inspection & Asset Mapping Report', margin, 26);
+    doc.text('Generated: ' + new Date().toUTCString(), margin, 33);
+
+    // Summary box
+    doc.setFillColor(30, 36, 45);
+    doc.roundedRect(margin, 46, W - margin*2, 24, 3, 3, 'F');
+    doc.setTextColor(240, 165, 0);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TOTAL ASSETS', margin + 8, 55);
+    doc.text('GOOD', margin + 60, 55);
+    doc.text('FAIR', margin + 100, 55);
+    doc.text('POOR', margin + 140, 55);
+    doc.setTextColor(232, 234, 240);
+    doc.setFontSize(16);
+    doc.text(String(assets.length), margin + 8, 65);
+    doc.setTextColor(46, 204, 113);
+    doc.text(String(assets.filter(a=>a.condition==='good').length), margin + 60, 65);
+    doc.setTextColor(243, 156, 18);
+    doc.text(String(assets.filter(a=>a.condition==='fair').length), margin + 100, 65);
+    doc.setTextColor(231, 76, 60);
+    doc.text(String(assets.filter(a=>a.condition==='poor').length), margin + 140, 65);
+
+    // Asset list
+    let y = 80;
+    assets.forEach((asset, i) => {
+      if (y > 260) { doc.addPage(); y = 20; }
+
+      const condColor = asset.condition === 'good' ? [46,204,113] : asset.condition === 'fair' ? [243,156,18] : [231,76,60];
+
+      doc.setFillColor(24, 28, 34);
+      doc.roundedRect(margin, y, W - margin*2, 28, 2, 2, 'F');
+
+      // Condition indicator
+      doc.setFillColor(...condColor);
+      doc.rect(margin, y, 3, 28, 'F');
+
+      doc.setTextColor(240, 165, 0);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.text(asset.id, margin + 7, y + 7);
+
+      doc.setTextColor(232, 234, 240);
+      doc.setFontSize(11);
+      doc.text(asset.name, margin + 7, y + 14);
+
+      doc.setTextColor(120, 131, 148);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${asset.type}  |  Inspector: ${asset.inspector}  |  Date: ${asset.date}`, margin + 7, y + 21);
+      doc.text(`Coords: ${asset.lat.toFixed(5)}, ${asset.lng.toFixed(5)}`, margin + 7, y + 26);
+
+      // Condition label
+      doc.setFillColor(...condColor);
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold');
+      const condW = 18;
+      doc.roundedRect(W - margin - condW - 2, y + 4, condW + 2, 8, 2, 2, 'F');
+      doc.text(asset.condition.toUpperCase(), W - margin - condW + 1, y + 10);
+
+      y += 32;
+    });
+
+    // Notes section
+    if (y < 240) {
+      y += 6;
+      doc.setDrawColor(37, 44, 56);
+      doc.line(margin, y, W - margin, y);
+      y += 8;
+      doc.setTextColor(120, 131, 148);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.text('INSPECTION NOTES', margin, y);
+      y += 6;
+      assets.forEach(asset => {
+        if (asset.notes && asset.notes !== 'No notes.') {
+          if (y > 270) { doc.addPage(); y = 20; }
+          doc.setTextColor(240, 165, 0);
+          doc.setFontSize(8);
+          doc.text(`${asset.id} — ${asset.name}`, margin, y);
+          y += 5;
+          doc.setTextColor(180, 185, 195);
+          doc.setFont('helvetica', 'normal');
+          const lines = doc.splitTextToSize(asset.notes, W - margin*2 - 4);
+          doc.text(lines, margin + 2, y);
+          y += lines.length * 5 + 4;
+        }
+      });
+    }
+
+    // Footer
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let p = 1; p <= totalPages; p++) {
+      doc.setPage(p);
+      doc.setFillColor(13, 15, 18);
+      doc.rect(0, 287, W, 10, 'F');
+      doc.setTextColor(74, 82, 99);
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      doc.text('VANTAFIELD © 2026 — Powered by Tumbletech', margin, 293);
+      doc.text(`Page ${p} of ${totalPages}`, W - margin, 293, { align: 'right' });
+    }
+
+    doc.save('vantafield-report-' + new Date().toISOString().slice(0,10) + '.pdf');
+    showToast('📄', 'Report exported successfully.');
+  }
+
+  // ── TOAST ──
+  function showToast(icon, msg) {
+    const old = document.querySelector('.toast');
+    if (old) old.remove();
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = `<span class="toast-icon">${icon}</span><span>${msg}</span>`;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+      toast.style.animation = 'toastIn 0.3s ease reverse';
+      setTimeout(() => toast.remove(), 280);
+    }, 3000);
+  }
+
+  // ── DEMO DATA (optional pre-load) ──
+  function loadDemoAssets() {
+    const demos = [
+      { name: 'Main Water Valve Station', type: 'Valve / Gate', condition: 'good', inspector: 'J. Reyes', lat: 14.3455, lng: 120.9377, notes: 'Valve operational. No visible leaks. Next inspection due in 3 months.' },
+      { name: 'Drainage Channel B-04', type: 'Drainage', condition: 'fair', inspector: 'J. Reyes', lat: 14.3490, lng: 120.9420, notes: 'Partial blockage observed on northern end. Recommend cleaning within 30 days.' },
+      { name: 'Road Section KM 4.2', type: 'Road / Pavement', condition: 'poor', inspector: 'J. Reyes', lat: 14.3510, lng: 120.9350, notes: 'Severe cracking and potholing. Immediate patching required. Safety hazard.' },
+    ];
+
+    demos.forEach(d => {
+      const id = 'VF-' + String(assetCounter++).padStart(4, '0');
+      const asset = { ...d, id, date: '2026-05-04' };
+      assets.push(asset);
+      placeMarker(asset);
+    });
+
+    map.setView([14.349, 120.939], 14);
+    renderSidebar();
+    updateStats();
+    showToast('📍', '3 demo assets loaded. Try clicking the map to add more.');
+  }
+
+  // Load demo on start
+  loadDemoAssets();
+</script>
+</body>
+</html>
