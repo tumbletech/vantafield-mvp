@@ -25,9 +25,9 @@
       --accent: #f0a500;
       --accent-dim: #a87200;
       --accent-glow: rgba(240,165,0,0.15);
-      --text-primary: #e8eaf0;
-      --text-secondary: #7a8394;
-      --text-muted: #4a5263;
+      --text-primary: #f1f3f8;
+      --text-secondary: #9aa3b2;
+      --text-muted: #5c6475;
       --border: #252c38;
       --border-accent: rgba(240,165,0,0.3);
       --success: #2ecc71;
@@ -98,7 +98,12 @@
       gap: 6px;
       font-family: var(--font-mono);
       font-size: 11px;
-      color: var(--text-muted);
+      color: var(--text-secondary);
+    }
+
+    .topbar-center span {
+      color: var(--text-primary);
+      font-weight: 500;
     }
 
     .status-dot {
@@ -107,6 +112,7 @@
       border-radius: 50%;
       background: var(--success);
       animation: pulse 2s infinite;
+      box-shadow: 0 0 6px var(--success);
     }
 
     @keyframes pulse {
@@ -173,6 +179,7 @@
     .btn-sm {
       padding: 5px 10px;
       font-size: 11px;
+      letter-spacing: 0.5px;
     }
 
     /* ── MAIN LAYOUT ── */
@@ -207,7 +214,7 @@
       font-weight: 700;
       letter-spacing: 2px;
       text-transform: uppercase;
-      color: var(--text-secondary);
+      color: var(--text-primary);
     }
 
     .asset-count {
@@ -239,7 +246,7 @@
     }
 
     .search-input:focus { border-color: var(--accent); }
-    .search-input::placeholder { color: var(--text-muted); }
+    .search-input::placeholder { color: #6b7385; }
 
     .asset-list {
       flex: 1;
@@ -326,10 +333,11 @@
 
     .asset-meta {
       font-family: var(--font-mono);
-      font-size: 10px;
-      color: var(--text-muted);
+      font-size: 11px;
+      color: var(--text-secondary);
       display: flex;
       gap: 12px;
+      opacity: 0.9;
     }
 
     .asset-actions {
@@ -437,11 +445,14 @@
       padding: 8px 14px;
       font-family: var(--font-mono);
       font-size: 11px;
-      color: var(--text-muted);
+      color: var(--text-secondary);
+      backdrop-filter: blur(6px);
     }
 
     .coord-display {
       color: var(--accent);
+      font-weight: 600;
+      letter-spacing: 0.5px;
     }
 
     #map {
